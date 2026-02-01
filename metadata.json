@@ -1,0 +1,5 @@
+{
+  "name": "Coffee Pulse",
+  "description": "A sensory-guided pour-over coffee timer featuring a bloom phase, rhythmic pouring pulses, and polite audio cues.",
+  "requestFramePermissions": []
+}
