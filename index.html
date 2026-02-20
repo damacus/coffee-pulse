@@ -4,8 +4,87 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Coffee Pulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#140c06" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: #140c06;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Hide number input spinners */
+      input[type=number]::-webkit-inner-spin-button,
+      input[type=number]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input[type=number] { -moz-appearance: textfield; }
+
+      /* Phase label entrance */
+      @keyframes phase-enter {
+        from { opacity: 0; transform: translateY(-5px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0)   scale(1); }
+      }
+      .phase-enter { animation: phase-enter 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+
+      /* Icon animations for each phase */
+      @keyframes breathe {
+        0%, 100% { opacity: 0.5; transform: scale(1); }
+        50%       { opacity: 0.85; transform: scale(1.12); }
+      }
+      @keyframes drip {
+        0%, 100% { transform: translateY(0); opacity: 0.65; }
+        40%       { transform: translateY(3px); opacity: 0.9; }
+      }
+      @keyframes hover-still {
+        0%, 100% { opacity: 0.55; }
+        50%       { opacity: 0.8; }
+      }
+      .anim-breathe { animation: breathe 2.2s ease-in-out infinite; }
+      .anim-drip    { animation: drip 1s ease-in-out infinite; }
+      .anim-hover   { animation: hover-still 3s ease-in-out infinite; }
+
+      /* Brew stat number entrance */
+      @keyframes stat-in {
+        from { opacity: 0; transform: translateY(4px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Button press feedback */
+      .btn-press { transition: transform 0.12s ease, opacity 0.12s ease; }
+      .btn-press:active { transform: scale(0.95) !important; opacity: 0.85; }
+
+      /* Settings modal slide-up */
+      @keyframes slide-up {
+        from { transform: translateY(100%); opacity: 0; }
+        to   { transform: translateY(0);    opacity: 1; }
+      }
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      .modal-overlay { animation: fade-in 0.25s ease both; }
+      .modal-sheet   { animation: slide-up 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+
+      /* Input focus ring in espresso style */
+      input:focus {
+        outline: none;
+        border-color: rgba(245, 220, 180, 0.35) !important;
+        box-shadow: 0 0 0 3px rgba(245, 220, 180, 0.06);
+      }
+
+      /* Scrollbar styling for modal */
+      .modal-scroll::-webkit-scrollbar { width: 3px; }
+      .modal-scroll::-webkit-scrollbar-track { background: transparent; }
+      .modal-scroll::-webkit-scrollbar-thumb { background: rgba(245,220,180,0.15); border-radius: 2px; }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -17,7 +96,8 @@
 }
 </script>
 </head>
-  <body class="bg-slate-950 text-white overflow-hidden">
+  <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

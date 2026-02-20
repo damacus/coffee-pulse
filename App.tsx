@@ -1,24 +1,63 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings, Volume2, VolumeX, Play, RotateCcw, Coffee, Droplets, PauseCircle, Square } from 'lucide-react';
 import { TimerPhase, AppConfig, TimerState } from './types';
+import { THEMES, PHASE_SEMANTIC, DEFAULT_THEME_ID, a } from './themes';
 import { audioService } from './services/audioService';
 import { wakeLockService } from './services/wakeLockService';
-import { Button } from './components/Button';
 import { SettingsModal } from './components/SettingsModal';
 
+// ─── SVG ring constants ────────────────────────────────────────────────────────
+
+const RING_RADIUS  = 108;
+const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const SVG_SIZE     = 280;
+const CX = SVG_SIZE / 2;
+const CY = SVG_SIZE / 2;
+
+// ─── Tick marks ───────────────────────────────────────────────────────────────
+
+function buildTicks(ringColor: string, textColor: string, isIdle: boolean) {
+  return Array.from({ length: 60 }, (_, i) => {
+    const angle   = (i * 6 - 90) * (Math.PI / 180);
+    const isMajor = i % 5 === 0;
+    const outerR  = 131;
+    const innerR  = isMajor ? 121 : 127;
+    const stroke  = isIdle
+      ? (isMajor ? a(textColor, 0.22) : a(textColor, 0.07))
+      : (isMajor ? a(ringColor, 0.8)  : a(ringColor, 0.28));
+    return (
+      <line
+        key={i}
+        x1={CX + outerR * Math.cos(angle)} y1={CY + outerR * Math.sin(angle)}
+        x2={CX + innerR * Math.cos(angle)} y2={CY + innerR * Math.sin(angle)}
+        stroke={stroke}
+        strokeWidth={isMajor ? 1.5 : 1}
+        strokeLinecap="round"
+        style={{ transition: 'stroke 0.8s ease' }}
+      />
+    );
+  });
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+
 const App: React.FC = () => {
-  // --- Configuration State ---
+  // ── Config & theme ──────────────────────────────────────────────────────────
   const [config, setConfig] = useState<AppConfig>({
     bloomDuration: 30,
     pulseInterval: 5,
     isMuted: false,
-    coffeeWeight: 20,
+    coffeeWeight: 15,
     waterRatio: 15.5,
+    themeId: DEFAULT_THEME_ID,
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // --- Timer State ---
+  const activeTheme = THEMES.find(t => t.id === config.themeId) ?? THEMES[0];
+  const T = activeTheme.text; // shorthand for a(T, x) calls
+
+  // ── Timer state ─────────────────────────────────────────────────────────────
   const [timerState, setTimerState] = useState<TimerState>({
     phase: TimerPhase.IDLE,
     totalTime: 0,
@@ -26,79 +65,53 @@ const App: React.FC = () => {
     isActive: false,
   });
 
-  // Refs for interval management
   const intervalRef = useRef<number | null>(null);
 
-  // --- Helper: Format Time ---
+  // ── Per-render derived styles (theme-aware, so must be inside component) ────
+  const iconBtnStyle: React.CSSProperties = {
+    width: 42, height: 42, borderRadius: '50%',
+    background: a(T, 0.07),
+    border: `1px solid ${a(T, 0.15)}`,
+    color: a(T, 0.75),
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+    outline: 'none', padding: 0, flexShrink: 0,
+  };
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getPhaseTargetDuration = () => {
-    if (timerState.phase === TimerPhase.BLOOM) return config.bloomDuration;
-    if (timerState.phase === TimerPhase.POUR || timerState.phase === TimerPhase.WAIT) return config.pulseInterval;
-    return 0;
-  };
-
-  // --- Audio Toggle ---
   const toggleMute = () => {
     const newMuted = !config.isMuted;
     setConfig(prev => ({ ...prev, isMuted: newMuted }));
     audioService.setMute(newMuted);
   };
 
-  // --- Haptic Helper ---
   const triggerHaptic = (pattern: number | number[]) => {
-    if (!config.isMuted && typeof navigator !== 'undefined' && navigator.vibrate) {
-      try {
-        navigator.vibrate(pattern);
-      } catch (e) {
-        console.warn('Vibration failed', e);
-      }
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try { navigator.vibrate(pattern); } catch { /* ignore */ }
     }
   };
 
-  // --- Timer Logic Actions ---
-
+  // ── Timer actions ────────────────────────────────────────────────────────────
   const resetTimer = useCallback(() => {
-    if (intervalRef.current) {
-      window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    setTimerState({
-      phase: TimerPhase.IDLE,
-      totalTime: 0,
-      phaseTimeRemaining: config.bloomDuration,
-      isActive: false,
-    });
+    if (intervalRef.current) { window.clearInterval(intervalRef.current); intervalRef.current = null; }
+    setTimerState({ phase: TimerPhase.IDLE, totalTime: 0, phaseTimeRemaining: config.bloomDuration, isActive: false });
     wakeLockService.release();
   }, [config.bloomDuration]);
 
   const startTimer = useCallback(async () => {
-    // Initialize Audio Context on first user interaction
     await audioService.initialize();
-    
-    // Request Wake Lock
     await wakeLockService.request();
-
-    // Initial Start Haptic
     triggerHaptic(50);
-
-    setTimerState(prev => {
-        // If we are starting from IDLE, setup bloom
-        if (prev.phase === TimerPhase.IDLE) {
-            return {
-                ...prev,
-                isActive: true,
-                phase: TimerPhase.BLOOM,
-                phaseTimeRemaining: config.bloomDuration
-            };
-        }
-        // Resuming from paused
-        return { ...prev, isActive: true };
-    });
+    setTimerState(prev => prev.phase === TimerPhase.IDLE
+      ? { ...prev, isActive: true, phase: TimerPhase.BLOOM, phaseTimeRemaining: config.bloomDuration }
+      : { ...prev, isActive: true }
+    );
   }, [config.bloomDuration]);
 
   const stopTimer = useCallback(() => {
@@ -108,209 +121,264 @@ const App: React.FC = () => {
 
   const handleConfigSave = (newConfig: AppConfig) => {
     setConfig(newConfig);
-    // If IDLE, update the starting time immediately
     if (timerState.phase === TimerPhase.IDLE) {
       setTimerState(prev => ({ ...prev, phaseTimeRemaining: newConfig.bloomDuration }));
     }
   };
 
-  // --- The Heartbeat (Effect) ---
+  const handleThemeChange = (id: string) => {
+    setConfig(prev => ({ ...prev, themeId: id }));
+  };
+
+  // ── Heartbeat ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (timerState.isActive) {
       intervalRef.current = window.setInterval(() => {
-        setTimerState(currentState => {
-          let { phase, phaseTimeRemaining, totalTime } = currentState;
-
-          // Decrement phase time
+        setTimerState(cur => {
+          let { phase, phaseTimeRemaining, totalTime } = cur;
           phaseTimeRemaining -= 1;
-          // Increment total time
           totalTime += 1;
-
-          // --- State Transitions ---
-          // Switch when hitting 0 (skipping 0 display, goes 1 -> NextPhaseStart)
           if (phaseTimeRemaining <= 0) {
             switch (phase) {
               case TimerPhase.BLOOM:
-                // Bloom Finished -> Start Pouring
-                phase = TimerPhase.POUR;
-                phaseTimeRemaining = config.pulseInterval;
-                audioService.playArpeggio();
-                triggerHaptic([300, 100, 300, 100, 300]); 
-                break;
-              
+                phase = TimerPhase.POUR; phaseTimeRemaining = config.pulseInterval;
+                audioService.playArpeggio(); triggerHaptic([300, 100, 300, 100, 300]); break;
               case TimerPhase.POUR:
-                // Pour Finished -> Wait (Lower tone)
-                phase = TimerPhase.WAIT;
-                phaseTimeRemaining = config.pulseInterval;
-                audioService.playLowPing();
-                triggerHaptic(70); 
-                break;
-              
+                phase = TimerPhase.WAIT; phaseTimeRemaining = config.pulseInterval;
+                audioService.playLowPing(); triggerHaptic(70); break;
               case TimerPhase.WAIT:
-                // Wait Finished -> Pour (Higher tone)
-                phase = TimerPhase.POUR;
-                phaseTimeRemaining = config.pulseInterval;
-                audioService.playHighPing();
-                triggerHaptic([150, 50, 150]); 
-                break;
-                
-              default:
-                break;
+                phase = TimerPhase.POUR; phaseTimeRemaining = config.pulseInterval;
+                audioService.playHighPing(); triggerHaptic([150, 50, 150]); break;
             }
           }
-
-          return {
-            ...currentState,
-            phase,
-            phaseTimeRemaining,
-            totalTime
-          };
+          return { ...cur, phase, phaseTimeRemaining, totalTime };
         });
       }, 1000);
     } else if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
     }
+    return () => { if (intervalRef.current) window.clearInterval(intervalRef.current); };
+  }, [timerState.isActive, config.pulseInterval]);
 
-    return () => {
-      if (intervalRef.current) {
-        window.clearInterval(intervalRef.current);
-      }
-    };
-  }, [timerState.isActive, config.pulseInterval, config.isMuted]);
+  // ── Render computations ───────────────────────────────────────────────────────
+  const phaseColors  = activeTheme.phases[timerState.phase];
+  const phaseInfo    = PHASE_SEMANTIC[timerState.phase];
+  const isIdle       = timerState.phase === TimerPhase.IDLE;
 
+  const phaseDuration =
+    timerState.phase === TimerPhase.BLOOM ? config.bloomDuration : config.pulseInterval;
 
-  // --- Dynamic Background Logic ---
-  const getBackgroundClass = () => {
-    switch (timerState.phase) {
-      case TimerPhase.BLOOM: return "bg-blue-600";
-      case TimerPhase.POUR: return "bg-emerald-600";
-      case TimerPhase.WAIT: return "bg-amber-600";
-      default: return "bg-slate-900";
-    }
-  };
-
-  const getPhaseLabel = () => {
-    switch (timerState.phase) {
-      case TimerPhase.BLOOM: return "BLOOMING";
-      case TimerPhase.POUR: return "POUR";
-      case TimerPhase.WAIT: return "WAIT";
-      default: return "READY";
-    }
-  };
+  const displayTime = isIdle ? config.bloomDuration : timerState.phaseTimeRemaining;
+  const progress    = isIdle ? 1 : timerState.phaseTimeRemaining / phaseDuration;
+  const dashoffset  = CIRCUMFERENCE * (1 - progress);
+  const totalWater  = Math.round(config.coffeeWeight * config.waterRatio);
 
   const getPhaseIcon = () => {
+    const col = phaseColors.ring;
     switch (timerState.phase) {
-      case TimerPhase.BLOOM: return <Coffee size={48} className="animate-pulse" />;
-      case TimerPhase.POUR: return <Droplets size={48} className="animate-bounce" />;
-      case TimerPhase.WAIT: return <PauseCircle size={48} className="animate-pulse" />;
-      default: return <Coffee size={48} />;
+      case TimerPhase.BLOOM: return <Coffee     size={20} color={col} />;
+      case TimerPhase.POUR:  return <Droplets   size={20} color={col} />;
+      case TimerPhase.WAIT:  return <PauseCircle size={20} color={col} />;
+      default:               return <Coffee     size={20} color={col} />;
     }
   };
 
+  const ticks = buildTicks(phaseColors.ring, T, isIdle);
+
+  // ── JSX ───────────────────────────────────────────────────────────────────────
   return (
-    <div className={`fixed inset-0 transition-colors duration-700 ease-in-out ${getBackgroundClass()} flex flex-col`}>
-      
-      {/* Header / Top Bar */}
-      <div className="flex justify-between items-center p-6 z-10">
-        <div className="flex items-center space-x-2">
-            <Coffee size={24} className="text-white/80" />
-            <h1 className="text-xl font-bold tracking-widest text-white/90">PULSE</h1>
+    <div style={{ position: 'fixed', inset: 0, background: activeTheme.bg, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'background 0.8s ease' }}>
+
+      {/* Phase glow layers */}
+      {THEMES.find(t => t.id === config.themeId) && (Object.keys(activeTheme.phases) as TimerPhase[]).map(p => (
+        <div key={p} style={{
+          position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
+          background: `radial-gradient(ellipse 65% 55% at 50% 44%, ${activeTheme.phases[p].glow} 0%, transparent 72%)`,
+          opacity: timerState.phase === p ? 1 : 0,
+          transition: 'opacity 0.9s ease',
+        }} />
+      ))}
+
+      {/* Vignette */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1, background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.65) 100%)' }} />
+
+      {/* ── Header ── */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '22px 24px 10px', position: 'relative', zIndex: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <Coffee size={15} color={a(T, 0.55)} />
+          <span style={{ fontFamily: "'Manrope', sans-serif", fontSize: '11px', fontWeight: 600, letterSpacing: '0.28em', color: a(T, 0.55), textTransform: 'uppercase' }}>
+            Coffee Pulse
+          </span>
         </div>
-        <div className="flex space-x-2">
-            <button 
-                onClick={toggleMute} 
-                className="p-3 bg-black/20 hover:bg-black/30 backdrop-blur rounded-full text-white transition-all"
-                aria-label={config.isMuted ? "Unmute" : "Mute"}
-            >
-                {config.isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={toggleMute} style={iconBtnStyle} className="btn-press" aria-label={config.isMuted ? 'Unmute' : 'Mute'}>
+            {config.isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </button>
+          <button onClick={() => setIsSettingsOpen(true)} style={iconBtnStyle} className="btn-press" aria-label="Settings">
+            <Settings size={15} />
+          </button>
+        </div>
+      </header>
+
+      {/* ── Main ── */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 10, padding: '0 24px' }}>
+
+        {/* Phase label */}
+        <div key={timerState.phase + '-lbl'} className="phase-enter" style={{
+          fontFamily: "'Manrope', sans-serif", fontSize: '10.5px', fontWeight: 700,
+          letterSpacing: '0.38em', color: phaseColors.ring, textTransform: 'uppercase',
+          marginBottom: 18, transition: 'color 0.8s ease',
+        }}>
+          {phaseInfo.label}
+        </div>
+
+        {/* Ring */}
+        <div style={{ position: 'relative', width: SVG_SIZE, height: SVG_SIZE, flexShrink: 0 }}>
+          <svg viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} style={{ width: '100%', height: '100%', overflow: 'visible' }} aria-hidden>
+            <defs>
+              <filter id="arc-glow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="4.5" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+
+            {ticks}
+
+            {/* Track */}
+            <circle cx={CX} cy={CY} r={RING_RADIUS} fill="none" stroke={a(T, 0.06)} strokeWidth={8} />
+
+            {/* Progress arc */}
+            <circle
+              cx={CX} cy={CY} r={RING_RADIUS}
+              fill="none" stroke={phaseColors.ring} strokeWidth={8} strokeLinecap="round"
+              strokeDasharray={CIRCUMFERENCE} strokeDashoffset={dashoffset}
+              transform={`rotate(-90 ${CX} ${CY})`} filter="url(#arc-glow)"
+              style={{ transition: 'stroke-dashoffset 0.88s linear, stroke 0.8s ease' }}
+            />
+
+            {/* Centre dot */}
+            <circle cx={CX} cy={CY} r={3.5} fill={phaseColors.ring} style={{ opacity: 0.45, transition: 'fill 0.8s ease' }} />
+          </svg>
+
+          {/* Centre overlay */}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div className={phaseInfo.iconClass} style={{ marginBottom: 6 }}>
+              {getPhaseIcon()}
+            </div>
+            <div style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: '96px', fontWeight: 400, lineHeight: 1, letterSpacing: '4px',
+              color: activeTheme.text,
+              textShadow: `0 0 45px ${a(phaseColors.ring, 0.5)}`,
+              transition: 'text-shadow 0.8s ease, color 0.8s ease',
+              userSelect: 'none',
+            }}>
+              {displayTime}
+            </div>
+            <div style={{
+              fontFamily: "'Manrope', sans-serif", fontSize: '9.5px', fontWeight: 500,
+              letterSpacing: '0.26em', color: a(T, 0.55), textTransform: 'uppercase', marginTop: 5,
+            }}>
+              seconds
+            </div>
+          </div>
+        </div>
+
+        {/* Phase hint */}
+        <div key={timerState.phase + '-hint'} className="phase-enter" style={{
+          fontFamily: "'Manrope', sans-serif", fontSize: '12px', fontWeight: 400,
+          letterSpacing: '0.04em', color: a(T, 0.7), marginTop: 14, textAlign: 'center',
+        }}>
+          {phaseInfo.hint}
+        </div>
+
+        {/* Brew stats */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginTop: 18 }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: "'Manrope', sans-serif", fontSize: '9px', fontWeight: 600, letterSpacing: '0.22em', color: a(T, 0.6), textTransform: 'uppercase', marginBottom: 4 }}>Coffee</div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '28px', fontWeight: 400, color: activeTheme.text, letterSpacing: '2px', transition: 'color 0.8s ease' }}>
+              {config.coffeeWeight}<span style={{ fontFamily: "'Manrope', sans-serif", fontSize: '12px', color: a(T, 0.55), marginLeft: 2, fontWeight: 400 }}>g</span>
+            </div>
+          </div>
+          <div style={{ width: 1, height: 30, background: a(T, 0.15) }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: "'Manrope', sans-serif", fontSize: '9px', fontWeight: 600, letterSpacing: '0.22em', color: a(T, 0.6), textTransform: 'uppercase', marginBottom: 4 }}>Water</div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '28px', fontWeight: 400, color: activeTheme.text, letterSpacing: '2px', transition: 'color 0.8s ease' }}>
+              {totalWater}<span style={{ fontFamily: "'Manrope', sans-serif", fontSize: '12px', color: a(T, 0.55), marginLeft: 2, fontWeight: 400 }}>g</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Total elapsed */}
+        {!isIdle && (
+          <div style={{ fontFamily: "'Manrope', sans-serif", fontSize: '10.5px', fontWeight: 500, letterSpacing: '0.18em', color: a(T, 0.55), marginTop: 10, textTransform: 'uppercase' }}>
+            Total — {formatTime(timerState.totalTime)}
+          </div>
+        )}
+      </main>
+
+      {/* ── Control Deck ── */}
+      <footer style={{
+        position: 'relative', zIndex: 20, padding: '18px 28px 44px',
+        background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+        borderTop: `1px solid ${a(T, 0.06)}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, maxWidth: 380, margin: '0 auto' }}>
+
+          {/* Reset */}
+          {!isIdle && (
+            <button onClick={resetTimer} aria-label="Reset Timer" className="btn-press" style={{
+              width: 50, height: 50, borderRadius: '50%',
+              background: a(T, 0.07), border: `1px solid ${a(T, 0.13)}`,
+              color: a(T, 0.75), cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, outline: 'none',
+            }}>
+              <RotateCcw size={18} />
             </button>
-            <button 
-                onClick={() => setIsSettingsOpen(true)}
-                className="p-3 bg-black/20 hover:bg-black/30 backdrop-blur rounded-full text-white transition-all"
-                aria-label="Settings"
-            >
-                <Settings size={20} />
+          )}
+
+          {/* Start / Stop */}
+          {!timerState.isActive ? (
+            <button onClick={startTimer} aria-label="Start Timer" className="btn-press" style={{
+              flex: 1, height: 58, borderRadius: 29,
+              background: activeTheme.text, border: 'none', color: activeTheme.bg,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              fontFamily: "'Manrope', sans-serif", fontSize: '13px', fontWeight: 700,
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              boxShadow: `0 4px 28px ${a(activeTheme.text, 0.14)}`,
+              outline: 'none', transition: 'background 0.8s ease, color 0.8s ease, box-shadow 0.8s ease',
+            }}>
+              <Play size={16} fill={activeTheme.bg} />
+              {isIdle ? 'Start Brew' : 'Resume'}
             </button>
+          ) : (
+            <button onClick={stopTimer} aria-label="Pause Timer" className="btn-press" style={{
+              flex: 1, height: 58, borderRadius: 29,
+              background: 'rgba(175, 58, 48, 0.72)', border: '1px solid rgba(210, 90, 78, 0.38)',
+              backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+              color: 'rgba(255,218,208,0.94)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              fontFamily: "'Manrope', sans-serif", fontSize: '13px', fontWeight: 700,
+              letterSpacing: '0.18em', textTransform: 'uppercase', outline: 'none',
+            }}>
+              <Square size={14} fill="rgba(255,218,208,0.94)" />
+              Pause
+            </button>
+          )}
         </div>
-      </div>
+      </footer>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 relative">
-        
-        {/* Phase Indicator (Large) */}
-        <div className="text-center space-y-2 mb-12">
-            <div className="text-white/80 flex justify-center mb-6">
-                {getPhaseIcon()}
-            </div>
-            <h2 className="text-6xl sm:text-7xl font-black text-white tracking-tight uppercase drop-shadow-lg">
-                {getPhaseLabel()}
-            </h2>
-            <p className="text-white/70 text-lg font-medium tracking-widest">
-                {timerState.phase === TimerPhase.IDLE 
-                    ? "Start brewing" 
-                    : timerState.phase === TimerPhase.BLOOM 
-                        ? "Let it degas" 
-                        : timerState.phase === TimerPhase.POUR 
-                            ? "Add water slowly" 
-                            : "Let it drain"}
-            </p>
-        </div>
-
-        {/* Phase Timer (Centerpiece) */}
-        <div className="relative mb-8">
-            <div className="text-[120px] sm:text-[160px] font-bold leading-none text-white tabular-nums tracking-tighter drop-shadow-xl select-none">
-                {timerState.phase === TimerPhase.IDLE 
-                    ? config.bloomDuration 
-                    : timerState.phaseTimeRemaining}
-            </div>
-            {timerState.phase !== TimerPhase.IDLE && (
-                <div className="absolute top-full left-0 right-0 pt-2 flex flex-col items-center gap-1">
-                     <div className="text-white/70 font-mono text-base uppercase tracking-[0.2em] font-bold">
-                        Target: {getPhaseTargetDuration()}s
-                    </div>
-                    <div className="text-white/50 font-mono text-xl">
-                        TOTAL: {formatTime(timerState.totalTime)}
-                    </div>
-                </div>
-            )}
-        </div>
-
-      </div>
-
-      {/* Control Deck */}
-      <div className="bg-black/20 backdrop-blur-lg pb-12 pt-8 px-6 rounded-t-3xl border-t border-white/10">
-        <div className="flex justify-center items-center space-x-6 max-w-md mx-auto">
-            
-            {/* Reset Button (Only visible if not idle) */}
-            <div className={`transition-all duration-300 ${timerState.phase === TimerPhase.IDLE ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
-                 <Button variant="secondary" onClick={resetTimer} aria-label="Reset Timer">
-                    <RotateCcw size={24} />
-                 </Button>
-            </div>
-
-            {/* Main Action Button */}
-            {!timerState.isActive ? (
-                <Button variant="primary" onClick={startTimer} className="flex-1" aria-label="Start Timer">
-                    <Play size={28} className="ml-1" fill="currentColor" />
-                    <span className="ml-3">START BREW</span>
-                </Button>
-            ) : (
-                <Button variant="danger" onClick={stopTimer} className="flex-1" aria-label="Pause Timer">
-                    <Square size={24} fill="currentColor" />
-                    <span className="ml-3">STOP</span>
-                </Button>
-            )}
-        </div>
-      </div>
-
-      {/* Settings Modal */}
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
+      {/* ── Settings ── */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         config={config}
         onSave={handleConfigSave}
+        theme={activeTheme}
+        themes={THEMES}
+        onThemeChange={handleThemeChange}
       />
-
     </div>
   );
 };

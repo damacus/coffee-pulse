@@ -11,6 +11,7 @@ export interface AppConfig {
   isMuted: boolean;
   coffeeWeight: number; // grams
   waterRatio: number; // water per gram of coffee
+  themeId: string;
 }
 
 export interface TimerState {
