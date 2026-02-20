@@ -65,7 +65,9 @@ const App: React.FC = () => {
     isActive: false,
   });
 
-  const intervalRef = useRef<number | null>(null);
+  const intervalRef    = useRef<number | null>(null);
+  const timerStateRef  = useRef(timerState);
+  timerStateRef.current = timerState; // always holds latest state for interval reads
 
   // ── Per-render derived styles (theme-aware, so must be inside component) ────
   const iconBtnStyle: React.CSSProperties = {
@@ -134,25 +136,29 @@ const App: React.FC = () => {
   useEffect(() => {
     if (timerState.isActive) {
       intervalRef.current = window.setInterval(() => {
-        setTimerState(cur => {
-          let { phase, phaseTimeRemaining, totalTime } = cur;
-          phaseTimeRemaining -= 1;
-          totalTime += 1;
-          if (phaseTimeRemaining <= 0) {
-            switch (phase) {
-              case TimerPhase.BLOOM:
-                phase = TimerPhase.POUR; phaseTimeRemaining = config.pulseInterval;
-                audioService.playArpeggio(); triggerHaptic([300, 100, 300, 100, 300]); break;
-              case TimerPhase.POUR:
-                phase = TimerPhase.WAIT; phaseTimeRemaining = config.pulseInterval;
-                audioService.playLowPing(); triggerHaptic(70); break;
-              case TimerPhase.WAIT:
-                phase = TimerPhase.POUR; phaseTimeRemaining = config.pulseInterval;
-                audioService.playHighPing(); triggerHaptic([150, 50, 150]); break;
-            }
+        // Read latest state via ref — no updater function, so side effects
+        // (haptics, audio) run directly in the setInterval task context where
+        // navigator.vibrate is reliably honoured by the browser.
+        const cur = timerStateRef.current;
+        let { phase, phaseTimeRemaining, totalTime } = cur;
+        phaseTimeRemaining -= 1;
+        totalTime += 1;
+
+        if (phaseTimeRemaining <= 0) {
+          switch (phase) {
+            case TimerPhase.BLOOM:
+              phase = TimerPhase.POUR; phaseTimeRemaining = config.pulseInterval;
+              audioService.playArpeggio(); triggerHaptic([300, 100, 300, 100, 300]); break;
+            case TimerPhase.POUR:
+              phase = TimerPhase.WAIT; phaseTimeRemaining = config.pulseInterval;
+              audioService.playLowPing(); triggerHaptic(70); break;
+            case TimerPhase.WAIT:
+              phase = TimerPhase.POUR; phaseTimeRemaining = config.pulseInterval;
+              audioService.playHighPing(); triggerHaptic([150, 50, 150]); break;
           }
-          return { ...cur, phase, phaseTimeRemaining, totalTime };
-        });
+        }
+
+        setTimerState({ ...cur, phase, phaseTimeRemaining, totalTime });
       }, 1000);
     } else if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
