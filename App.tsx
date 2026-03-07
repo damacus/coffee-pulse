@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Settings, Volume2, VolumeX, Play, RotateCcw, Coffee, Droplets, PauseCircle, Square } from 'lucide-react';
 import { TimerPhase, AppConfig, TimerState } from './types';
 import { THEMES, PHASE_SEMANTIC, DEFAULT_THEME_ID, a } from './themes';
@@ -189,7 +189,8 @@ const App: React.FC = () => {
     }
   };
 
-  const ticks = buildTicks(phaseColors.ring, T, isIdle);
+  // ⚡ Bolt: Memoize the 60 SVG tick lines to avoid recreating them on every render
+  const ticks = useMemo(() => buildTicks(phaseColors.ring, T, isIdle), [phaseColors.ring, T, isIdle]);
 
   // ── JSX ───────────────────────────────────────────────────────────────────────
   return (
