@@ -217,7 +217,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* Coffee presets */}
             <div style={{ marginBottom: 12 }}>
-              <label style={fieldLabel(theme)}>Coffee (g)</label>
+              <label htmlFor="coffeeWeight" style={fieldLabel(theme)}>Coffee (g)</label>
               <div style={{ display: 'flex', gap: 7, marginBottom: 8 }}>
                 {[15, 30, 45, 60, 75].map(g => {
                   const active = local.coffeeWeight === g;
@@ -242,6 +242,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 })}
               </div>
               <input
+                id="coffeeWeight"
                 type="number" min="1" step="0.1"
                 value={local.coffeeWeight || ''}
                 onChange={e => handleChange('coffeeWeight', e.target.value)}
@@ -251,8 +252,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* Ratio */}
             <div style={{ marginBottom: 18 }}>
-              <label style={fieldLabel(theme)}>Ratio (1:?)</label>
+              <label htmlFor="waterRatio" style={fieldLabel(theme)}>Ratio (1:?)</label>
               <input
+                id="waterRatio"
                 type="number" min="1" step="0.1"
                 value={local.waterRatio || ''}
                 onChange={e => handleChange('waterRatio', e.target.value)}
@@ -315,8 +317,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={fieldLabel(theme)}>Bloom Duration</label>
+                <label htmlFor="bloomDuration" style={fieldLabel(theme)}>Bloom Duration</label>
                 <input
+                  id="bloomDuration"
                   type="number" min="1" max="120"
                   value={local.bloomDuration || ''}
                   onChange={e => handleChange('bloomDuration', e.target.value)}
@@ -325,8 +328,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <p style={hintText(theme)}>Seconds to degas before pouring begins</p>
               </div>
               <div>
-                <label style={fieldLabel(theme)}>Pulse Interval</label>
+                <label htmlFor="pulseInterval" style={fieldLabel(theme)}>Pulse Interval</label>
                 <input
+                  id="pulseInterval"
                   type="number" min="1" max="60"
                   value={local.pulseInterval || ''}
                   onChange={e => handleChange('pulseInterval', e.target.value)}
