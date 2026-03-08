@@ -1,5 +1,11 @@
 // Singleton Audio Service using Web Audio API
 
+declare global {
+  interface Window {
+    webkitAudioContext: typeof AudioContext;
+  }
+}
+
 class AudioService {
   private context: AudioContext | null = null;
   private gainNode: GainNode | null = null;
@@ -15,7 +21,7 @@ class AudioService {
 
   public async initialize() {
     if (!this.context) {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       this.context = new AudioContextClass();
       this.gainNode = this.context.createGain();
       this.gainNode.connect(this.context.destination);
