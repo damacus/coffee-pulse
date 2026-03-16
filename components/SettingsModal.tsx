@@ -46,6 +46,11 @@ const hintText = (t: Theme): React.CSSProperties => ({
   letterSpacing: '0.04em', color: a(t.text, 0.55), marginTop: 6,
 });
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const COFFEE_PRESETS = [15, 30, 45, 60, 75];
+const THEME_SWATCH_PHASES = [TimerPhase.BLOOM, TimerPhase.POUR, TimerPhase.WAIT, TimerPhase.IDLE];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -179,7 +184,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }}>
                       {/* Phase colour dots arranged in a 2×2 grid */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
-                        {([TimerPhase.BLOOM, TimerPhase.POUR, TimerPhase.WAIT, TimerPhase.IDLE] as TimerPhase[]).map(p => (
+                        {THEME_SWATCH_PHASES.map(p => (
                           <div key={p} style={{
                             width: 7, height: 7, borderRadius: '50%',
                             background: t.phases[p].ring,
@@ -219,7 +224,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div style={{ marginBottom: 12 }}>
               <label htmlFor="coffeeWeight" style={fieldLabel(theme)}>Coffee (g)</label>
               <div style={{ display: 'flex', gap: 7, marginBottom: 8 }}>
-                {[15, 30, 45, 60, 75].map(g => {
+                {COFFEE_PRESETS.map(g => {
                   const active = local.coffeeWeight === g;
                   return (
                     <button
