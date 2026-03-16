@@ -1,9 +1,11 @@
-export enum TimerPhase {
-  IDLE = 'IDLE',
-  BLOOM = 'BLOOM',
-  POUR = 'POUR',
-  WAIT = 'WAIT',
-}
+export const TimerPhase = {
+  IDLE: 'IDLE',
+  BLOOM: 'BLOOM',
+  POUR: 'POUR',
+  WAIT: 'WAIT',
+} as const;
+
+export type TimerPhase = typeof TimerPhase[keyof typeof TimerPhase];
 
 export interface AppConfig {
   bloomDuration: number;

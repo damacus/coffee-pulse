@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Save, Calculator, Timer, Coffee, Droplets, Palette } from 'lucide-react';
 import { AppConfig, TimerPhase } from '../types';
 import { Theme, a } from '../themes';
+import { validateConfig } from '../services/validation';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -63,12 +64,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleSave = () => {
-    if (local.bloomDuration < 1 || local.pulseInterval < 1) {
-      setError('Durations must be at least 1 second.');
-      return;
-    }
-    if (local.coffeeWeight <= 0 || local.waterRatio <= 0) {
-      setError('Coffee weight and ratio must be positive.');
+    const validationError = validateConfig(local);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setError(null);

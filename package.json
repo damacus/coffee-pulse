@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "serve dist --listen ${PORT:-8080} --single",
-    "test": "node --experimental-strip-types themes.test.ts"
+    "test": "node --experimental-strip-types themes.test.ts validation.test.ts"
   },
   "dependencies": {
     "react": "^19.2.3",
