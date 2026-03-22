@@ -3,7 +3,7 @@ import { a } from './colorUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface ThemePhaseColors {
+interface ThemePhaseColors {
   ring: string;
   glow: string;
 }
