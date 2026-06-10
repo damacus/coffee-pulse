@@ -15,5 +15,8 @@
   "extra-files": [
     "package.json",
     "package-lock.json"
-  ]
+  ],
+  "packages": {
+    ".": {}
+  }
 }

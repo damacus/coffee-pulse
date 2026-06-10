@@ -35,12 +35,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Resolve image tag
         id: image-tag
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          EVENT_NAME: ${{ github.event_name }}
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
-          elif [[ -n "${{ inputs.image_tag }}" ]]; then
-            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          if [[ "$EVENT_NAME" == "release" ]]; then
+            echo "tag=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$IMAGE_TAG" ]]; then
+            echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
