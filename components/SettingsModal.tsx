@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { X, Save, Calculator, Timer, Coffee, Droplets, Palette } from 'lucide-react';
 import { AppConfig, TimerPhase } from '../types';
-import { Theme, a } from '../themes';
+import { Theme } from '../themes';
+import { a } from '../colorUtils';
 
 interface SettingsModalProps {
   isOpen: boolean;

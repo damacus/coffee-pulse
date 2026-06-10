@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Settings, Volume2, VolumeX, Play, RotateCcw, Coffee, Droplets, PauseCircle, Square } from 'lucide-react';
 import { TimerPhase, AppConfig, TimerState } from './types';
-import { THEMES, PHASE_SEMANTIC, DEFAULT_THEME_ID, a } from './themes';
+import { THEMES, PHASE_SEMANTIC, DEFAULT_THEME_ID } from './themes';
+import { a } from './colorUtils';
 import { audioService } from './services/audioService';
 import { wakeLockService } from './services/wakeLockService';
 import { SettingsModal } from './components/SettingsModal';
