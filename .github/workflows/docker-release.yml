@@ -36,18 +36,23 @@ jobs:
       - name: Resolve image tag
         id: image-tag
         env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
-          IMAGE_TAG: ${{ inputs.image_tag }}
-          EVENT_NAME: ${{ github.event_name }}
-        shell: bash
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
-          if [[ "$EVENT_NAME" == "release" ]]; then
-            echo "tag=${TAG_NAME}" >> "$GITHUB_OUTPUT"
-          elif [[ -n "$IMAGE_TAG" ]]; then
-            echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            tag="$RELEASE_TAG"
+          elif [[ -n "$INPUT_IMAGE_TAG" ]]; then
+            tag="$INPUT_IMAGE_TAG"
           else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
+            tag="latest"
           fi
+
+          if [[ ! "$tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "Invalid Docker image tag: $tag" >&2
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - uses: docker/metadata-action@v5
         id: meta
         with:
