@@ -2,5 +2,26 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "local>damacus/renovate-config"
+  ],
+  "timezone": "Europe/London",
+  "dependencyDashboard": true,
+  "rebaseWhen": "confident",
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["patch", "minor", "pin", "digest"],
+      "groupName": "Safe dependencies",
+      "groupSlug": "safe-dependencies",
+      "automerge": true,
+      "automergeType": "pr",
+      "minimumReleaseAge": "10 days"
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "Major dependencies",
+      "groupSlug": "major-dependencies",
+      "automerge": false
+    }
   ]
 }

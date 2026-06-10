@@ -18,3 +18,12 @@ View your app in AI Studio: https://ai.studio/apps/drive/1J1jvarWdPSeLEfkIWcXDCJ
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Release and Deployment
+
+- Dependency updates are handled by Renovate (safe patch/minor/batch updates auto-merge after 10 days).
+- Releases are managed by Release Please on pushes to `main`.
+- Release Please configuration lives in `.github/release-please-config.json` and `.github/release-please-manifest.json`.
+- Docker images are built and published to GitHub Container Registry on GitHub release publish events:
+  - `ghcr.io/<owner>/coffee-pulse:latest`
+  - `ghcr.io/<owner>/coffee-pulse:<tag>`
