@@ -90,7 +90,7 @@ class BrewViewModel(application: Application) : AndroidViewModel(application) {
         val session = _uiState.value.session
         if (session.phase != TimerPhase.IDLE) {
             pauseBrew()
-            _uiState.update { it.copy(pendingFinish = session.copy(isRunning = false)) }
+            _uiState.update { it.copy(pendingFinish = it.session) }
         }
     }
 
@@ -118,8 +118,7 @@ class BrewViewModel(application: Application) : AndroidViewModel(application) {
         )
         viewModelScope.launch {
             container.historyRepository.save(entry)
-            resetBrew()
-            container.haptics.finish(session.config.hapticsEnabled)
+            finishBrew()
         }
     }
 
@@ -155,6 +154,14 @@ class BrewViewModel(application: Application) : AndroidViewModel(application) {
                 delay(TimerEngine.millisUntilNextUpdate(transition.session, System.currentTimeMillis()))
             }
         }
+    }
+
+    private fun finishBrew() {
+        tickerJob?.cancel()
+        val next = TimerEngine.reset(_uiState.value.session)
+        _uiState.update { it.copy(session = next, pendingFinish = null) }
+        BrewTimerService.finish(appContext)
+        persistSession(null)
     }
 
     private fun persistSession(session: TimerSession?) {

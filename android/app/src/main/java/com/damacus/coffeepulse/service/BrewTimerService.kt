@@ -18,12 +18,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class BrewTimerService : Service() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var tickerJob: Job? = null
     private var session: TimerSession? = null
     private lateinit var notificationFactory: TimerNotificationFactory
@@ -55,7 +56,7 @@ class BrewTimerService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        tickerJob?.cancel()
+        scope.cancel()
         super.onDestroy()
     }
 
@@ -124,10 +125,12 @@ class BrewTimerService : Service() {
         tickerJob?.cancel()
         tickerJob = null
         session = null
-        persist(null)
         if (cancelHaptics) haptics.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        scope.launch {
+            configRepository.saveActiveSession(null)
+            stopSelf()
+        }
     }
 
     private fun handleCue(cue: TimerCue?, config: BrewConfig) {
@@ -185,6 +188,11 @@ class BrewTimerService : Service() {
 
         fun stop(context: Context) {
             val intent = Intent(context, BrewTimerService::class.java).setAction(ACTION_RESET)
+            context.startService(intent)
+        }
+
+        fun finish(context: Context) {
+            val intent = Intent(context, BrewTimerService::class.java).setAction(ACTION_FINISH)
             context.startService(intent)
         }
     }
