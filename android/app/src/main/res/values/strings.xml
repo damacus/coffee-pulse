@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Coffee Pulse</string>
+    <string name="app_description">A sensory guided pour-over coffee timer with brew history.</string>
+    <string name="fgs_special_use_reason">User initiated pour-over brewing timer that must continue countdown, phase cues, and lockscreen controls while the app is backgrounded.</string>
+    <string name="timer_channel_name">Active brew timer</string>
+    <string name="timer_channel_description">Progress, phase, pause, resume, and finish controls for an active brew.</string>
+</resources>
