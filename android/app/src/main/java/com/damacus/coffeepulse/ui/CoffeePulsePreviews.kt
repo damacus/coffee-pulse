@@ -24,7 +24,6 @@ private fun BrewScreenPreview() {
             palette = palette,
             onStart = {},
             onPause = {},
-            onReset = {},
             onFinish = {},
             onOpenSettings = {},
             onToggleSound = {},

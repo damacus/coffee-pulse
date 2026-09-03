@@ -18,6 +18,10 @@ data class BrewHistoryEntity(
     val themeId: String,
     val rating: Int?,
     val notes: String,
+    val grindSetting: String = "",
+    val beanOrigin: String = "",
+    val roastLevel: String = "",
+    val flavorTagsJoined: String = "",
 )
 
 fun BrewHistoryEntry.toEntity(): BrewHistoryEntity {
@@ -34,6 +38,10 @@ fun BrewHistoryEntry.toEntity(): BrewHistoryEntity {
         themeId = themeId,
         rating = rating,
         notes = notes,
+        grindSetting = grindSetting,
+        beanOrigin = beanOrigin,
+        roastLevel = roastLevel,
+        flavorTagsJoined = flavorTags.joinToString(","),
     )
 }
 
@@ -51,5 +59,13 @@ fun BrewHistoryEntity.toDomain(): BrewHistoryEntry {
         themeId = themeId,
         rating = rating,
         notes = notes,
+        grindSetting = grindSetting,
+        beanOrigin = beanOrigin,
+        roastLevel = roastLevel,
+        flavorTags = if (flavorTagsJoined.isBlank()) {
+            emptyList()
+        } else {
+            flavorTagsJoined.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        },
     )
 }

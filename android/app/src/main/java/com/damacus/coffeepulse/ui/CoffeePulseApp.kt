@@ -1,7 +1,7 @@
 package com.damacus.coffeepulse.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.damacus.coffeepulse.ui.brew.BrewScreen
 import com.damacus.coffeepulse.ui.history.HistoryScreen
 import com.damacus.coffeepulse.ui.settings.FinishBrewSheet
+import com.damacus.coffeepulse.ui.settings.PresetPickerSheet
 import com.damacus.coffeepulse.ui.settings.SettingsSheet
 import com.damacus.coffeepulse.ui.theme.CoffeePulseTheme
 import com.damacus.coffeepulse.ui.theme.paletteFor
@@ -49,7 +50,20 @@ fun CoffeePulseApp(
     val palette = paletteFor(state.config.themeId)
     var destination by rememberSaveable { mutableStateOf(CoffeePulseDestination.BREW) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var presetsOpen by rememberSaveable { mutableStateOf(false) }
     var selectedHistoryId by rememberSaveable { mutableStateOf<String?>(null) }
+
+    BackHandler(
+        enabled = !settingsOpen && !presetsOpen && state.pendingFinish == null && (
+            destination == CoffeePulseDestination.HISTORY || !state.session.isIdle
+        ),
+    ) {
+        if (destination == CoffeePulseDestination.HISTORY) {
+            destination = CoffeePulseDestination.BREW
+        } else {
+            viewModel.requestFinish()
+        }
+    }
 
     CoffeePulseTheme(palette) {
         val colorScheme = MaterialTheme.colorScheme
@@ -110,16 +124,20 @@ fun CoffeePulseApp(
                             viewModel.startBrew()
                         },
                         onPause = viewModel::pauseBrew,
-                        onReset = viewModel::resetBrew,
                         onFinish = viewModel::requestFinish,
                         onOpenSettings = { settingsOpen = true },
                         onToggleSound = viewModel::toggleSound,
+                        onOpenPresets = { presetsOpen = true },
                     )
                     HistoryScreen(
                         entries = state.history,
                         selectedId = selectedHistoryId,
                         onSelect = { selectedHistoryId = it },
                         palette = palette,
+                        onRepeatBrew = { config ->
+                            viewModel.saveConfig(config)
+                            destination = CoffeePulseDestination.BREW
+                        },
                         modifier = Modifier.weight(0.9f),
                     )
                 }
@@ -135,10 +153,10 @@ fun CoffeePulseApp(
                                     viewModel.startBrew()
                                 },
                                 onPause = viewModel::pauseBrew,
-                                onReset = viewModel::resetBrew,
                                 onFinish = viewModel::requestFinish,
                                 onOpenSettings = { settingsOpen = true },
                                 onToggleSound = viewModel::toggleSound,
+                                onOpenPresets = { presetsOpen = true },
                             )
 
                             CoffeePulseDestination.HISTORY -> HistoryScreen(
@@ -146,6 +164,10 @@ fun CoffeePulseApp(
                                 selectedId = selectedHistoryId,
                                 onSelect = { selectedHistoryId = it },
                                 palette = palette,
+                                onRepeatBrew = { config ->
+                                    viewModel.saveConfig(config)
+                                    destination = CoffeePulseDestination.BREW
+                                },
                             )
                         }
                     }
@@ -192,6 +214,20 @@ fun CoffeePulseApp(
                         viewModel.saveConfig(it)
                         settingsOpen = false
                     },
+                    onOpenPresets = {
+                        settingsOpen = false
+                        presetsOpen = true
+                    },
+                )
+            }
+
+            if (presetsOpen) {
+                PresetPickerSheet(
+                    palette = palette,
+                    onDismiss = { presetsOpen = false },
+                    onSelectPreset = { presetConfig ->
+                        viewModel.saveConfig(presetConfig)
+                    },
                 )
             }
 
@@ -200,7 +236,17 @@ fun CoffeePulseApp(
                     session = session,
                     palette = palette,
                     onDismiss = viewModel::dismissFinish,
-                    onSave = viewModel::saveFinishedBrew,
+                    onFinishWithoutSaving = viewModel::finishWithoutSaving,
+                    onSave = { rating, notes, grind, bean, roast, tags ->
+                        viewModel.saveFinishedBrew(
+                            rating = rating,
+                            notes = notes,
+                            grindSetting = grind,
+                            beanOrigin = bean,
+                            roastLevel = roast,
+                            flavorTags = tags,
+                        )
+                    },
                 )
             }
         }

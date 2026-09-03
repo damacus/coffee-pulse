@@ -48,6 +48,23 @@ class BrewAudioPlayer {
         }
     }
 
+    fun playCountdownPip(second: Int, enabled: Boolean) {
+        if (!enabled) return
+        val frequency = when (second) {
+            3 -> 659.25 // E5
+            2 -> 783.99 // G5
+            1 -> 987.77 // B5
+            else -> 600.0
+        }
+        thread(name = "coffee-pulse-countdown-pip-$second") {
+            playCue(
+                listOf(
+                    CueNote(frequencyHz = frequency, startMs = 0, durationMs = 120, volume = 0.09),
+                ),
+            )
+        }
+    }
+
     private fun playCue(notes: List<CueNote>) {
         val sampleRate = 44_100
         val durationMs = notes.maxOf { it.startMs + it.durationMs } + 80
@@ -103,8 +120,8 @@ class BrewAudioPlayer {
         val volume: Double,
     ) {
         fun envelope(noteTimeMs: Double): Double {
-            val attackMs = 38.0
-            val releaseMs = 28.0
+            val attackMs = 20.0
+            val releaseMs = 20.0
             val duration = durationMs.toDouble()
             val attack = (noteTimeMs / attackMs).coerceIn(0.0, 1.0)
             val decayProgress = ((noteTimeMs - attackMs) / (duration - attackMs)).coerceIn(0.0, 1.0)

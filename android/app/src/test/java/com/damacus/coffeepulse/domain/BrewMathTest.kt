@@ -1,6 +1,7 @@
 package com.damacus.coffeepulse.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BrewMathTest {
@@ -17,6 +18,15 @@ class BrewMathTest {
     @Test
     fun mainPourNeverDropsBelowZero() {
         assertEquals(0, BrewMath.mainPourGrams(coffeeGrams = 15.0, waterRatio = 1.0))
+    }
+
+    @Test
+    fun cumulativeTargetGramsCalculatesAppropriateTargets() {
+        // 15g coffee * 15.5 ratio = 233 total water, bloom = 30g
+        assertEquals(30, BrewMath.cumulativeTargetGrams(15.0, 15.5, pulseIndex = 0))
+        val step1 = BrewMath.cumulativeTargetGrams(15.0, 15.5, pulseIndex = 1)
+        assertTrue(step1 > 30)
+        assertTrue(step1 <= 233)
     }
 
     @Test

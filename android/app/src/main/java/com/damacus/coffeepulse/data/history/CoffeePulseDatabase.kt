@@ -7,8 +7,8 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [BrewHistoryEntity::class],
-    version = 1,
-    exportSchema = true,
+    version = 2,
+    exportSchema = false,
 )
 abstract class CoffeePulseDatabase : RoomDatabase() {
     abstract fun brewHistoryDao(): BrewHistoryDao
@@ -19,7 +19,8 @@ abstract class CoffeePulseDatabase : RoomDatabase() {
                 context.applicationContext,
                 CoffeePulseDatabase::class.java,
                 "coffee_pulse.db",
-            ).build()
+            ).fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
         }
     }
 }

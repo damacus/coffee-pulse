@@ -16,6 +16,7 @@ enum class TimerCue {
 data class TimerTransition(
     val session: TimerSession,
     val cue: TimerCue? = null,
+    val countdownSecondCue: Int? = null,
 )
 
 object TimerEngine {
@@ -35,6 +36,7 @@ object TimerEngine {
             pausedAccumulatedMillis = 0L,
             pausedStartedAtMillis = null,
             lastCueElapsedMillis = -1L,
+            lastCountdownSecond = -1,
             elapsedSeconds = 0,
             phaseRemainingSeconds = config.bloomSeconds,
             progress = 1f,
@@ -95,6 +97,15 @@ object TimerEngine {
                 null
             }
         }
+
+        // Countdown chime (3, 2, 1) seconds before boundary change
+        val remaining = resolved.phaseRemainingSeconds
+        val countdownCue = if (remaining in 1..3 && remaining != session.lastCountdownSecond) {
+            remaining
+        } else {
+            null
+        }
+
         val nextSession = session.copy(
             phase = resolved.phase,
             elapsedSeconds = (elapsedMillis / MILLIS_PER_SECOND).toInt(),
@@ -105,8 +116,15 @@ object TimerEngine {
             } else {
                 resolved.boundaryElapsedMillis
             },
+            lastCountdownSecond = if (countdownCue != null) {
+                countdownCue
+            } else if (remaining > 3 || boundaryCue != null) {
+                -1
+            } else {
+                session.lastCountdownSecond
+            },
         )
-        return TimerTransition(nextSession, boundaryCue)
+        return TimerTransition(nextSession, boundaryCue, countdownCue)
     }
 
     fun tick(session: TimerSession): TimerTransition {

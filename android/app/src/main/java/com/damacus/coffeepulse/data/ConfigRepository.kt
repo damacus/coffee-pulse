@@ -30,6 +30,10 @@ class ConfigRepository(context: Context) {
             themeId = prefs[Keys.THEME_ID] ?: "instrument",
             soundEnabled = prefs[Keys.SOUND_ENABLED] ?: true,
             hapticsEnabled = prefs[Keys.HAPTICS_ENABLED] ?: true,
+            countdownAudioEnabled = prefs[Keys.COUNTDOWN_AUDIO_ENABLED] ?: true,
+            showCumulativeWeightTarget = prefs[Keys.SHOW_CUMULATIVE_WEIGHT_TARGET] ?: true,
+            keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: true,
+            advancedTastingWorkflow = prefs[Keys.ADVANCED_TASTING_WORKFLOW] ?: true,
         )
     }
 
@@ -46,6 +50,10 @@ class ConfigRepository(context: Context) {
             prefs[Keys.THEME_ID] = config.themeId
             prefs[Keys.SOUND_ENABLED] = config.soundEnabled
             prefs[Keys.HAPTICS_ENABLED] = config.hapticsEnabled
+            prefs[Keys.COUNTDOWN_AUDIO_ENABLED] = config.countdownAudioEnabled
+            prefs[Keys.SHOW_CUMULATIVE_WEIGHT_TARGET] = config.showCumulativeWeightTarget
+            prefs[Keys.KEEP_SCREEN_ON] = config.keepScreenOn
+            prefs[Keys.ADVANCED_TASTING_WORKFLOW] = config.advancedTastingWorkflow
         }
     }
 
@@ -59,6 +67,7 @@ class ConfigRepository(context: Context) {
                 prefs[Keys.ACTIVE_PAUSED_ACCUMULATED] = session.pausedAccumulatedMillis
                 prefs[Keys.ACTIVE_PAUSED_STARTED_AT] = session.pausedStartedAtMillis ?: 0L
                 prefs[Keys.ACTIVE_LAST_CUE_ELAPSED] = session.lastCueElapsedMillis
+                prefs[Keys.ACTIVE_LAST_COUNTDOWN_SECOND] = session.lastCountdownSecond
                 prefs[Keys.ACTIVE_ELAPSED] = session.elapsedSeconds
                 prefs[Keys.ACTIVE_REMAINING] = session.phaseRemainingSeconds
                 prefs[Keys.ACTIVE_PROGRESS] = session.progress.toDouble()
@@ -70,6 +79,10 @@ class ConfigRepository(context: Context) {
                 prefs[Keys.ACTIVE_THEME] = session.config.themeId
                 prefs[Keys.ACTIVE_SOUND] = session.config.soundEnabled
                 prefs[Keys.ACTIVE_HAPTICS] = session.config.hapticsEnabled
+                prefs[Keys.ACTIVE_COUNTDOWN_AUDIO] = session.config.countdownAudioEnabled
+                prefs[Keys.ACTIVE_SHOW_TARGET] = session.config.showCumulativeWeightTarget
+                prefs[Keys.ACTIVE_KEEP_SCREEN_ON] = session.config.keepScreenOn
+                prefs[Keys.ACTIVE_ADVANCED_TASTING] = session.config.advancedTastingWorkflow
             }
         }
     }
@@ -85,6 +98,10 @@ class ConfigRepository(context: Context) {
             themeId = prefs[Keys.ACTIVE_THEME] ?: "instrument",
             soundEnabled = prefs[Keys.ACTIVE_SOUND] ?: true,
             hapticsEnabled = prefs[Keys.ACTIVE_HAPTICS] ?: true,
+            countdownAudioEnabled = prefs[Keys.ACTIVE_COUNTDOWN_AUDIO] ?: true,
+            showCumulativeWeightTarget = prefs[Keys.ACTIVE_SHOW_TARGET] ?: true,
+            keepScreenOn = prefs[Keys.ACTIVE_KEEP_SCREEN_ON] ?: true,
+            advancedTastingWorkflow = prefs[Keys.ACTIVE_ADVANCED_TASTING] ?: true,
         )
         if (phase == TimerPhase.IDLE) return TimerEngine.idle(config)
         return TimerSession(
@@ -93,6 +110,7 @@ class ConfigRepository(context: Context) {
             pausedAccumulatedMillis = prefs[Keys.ACTIVE_PAUSED_ACCUMULATED] ?: 0L,
             pausedStartedAtMillis = prefs[Keys.ACTIVE_PAUSED_STARTED_AT]?.takeIf { it > 0L },
             lastCueElapsedMillis = prefs[Keys.ACTIVE_LAST_CUE_ELAPSED] ?: -1L,
+            lastCountdownSecond = prefs[Keys.ACTIVE_LAST_COUNTDOWN_SECOND] ?: -1,
             elapsedSeconds = prefs[Keys.ACTIVE_ELAPSED] ?: 0,
             phaseRemainingSeconds = prefs[Keys.ACTIVE_REMAINING] ?: config.bloomSeconds,
             progress = (prefs[Keys.ACTIVE_PROGRESS] ?: 1.0).toFloat(),
@@ -109,12 +127,17 @@ class ConfigRepository(context: Context) {
         val THEME_ID = stringPreferencesKey("theme_id")
         val SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
         val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
+        val COUNTDOWN_AUDIO_ENABLED = booleanPreferencesKey("countdown_audio_enabled")
+        val SHOW_CUMULATIVE_WEIGHT_TARGET = booleanPreferencesKey("show_cumulative_weight_target")
+        val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val ADVANCED_TASTING_WORKFLOW = booleanPreferencesKey("advanced_tasting_workflow")
 
         val ACTIVE_PHASE = stringPreferencesKey("active_phase")
         val ACTIVE_STARTED_AT = longPreferencesKey("active_started_at")
         val ACTIVE_PAUSED_ACCUMULATED = longPreferencesKey("active_paused_accumulated")
         val ACTIVE_PAUSED_STARTED_AT = longPreferencesKey("active_paused_started_at")
         val ACTIVE_LAST_CUE_ELAPSED = longPreferencesKey("active_last_cue_elapsed")
+        val ACTIVE_LAST_COUNTDOWN_SECOND = intPreferencesKey("active_last_countdown_second")
         val ACTIVE_ELAPSED = intPreferencesKey("active_elapsed")
         val ACTIVE_REMAINING = intPreferencesKey("active_remaining")
         val ACTIVE_PROGRESS = doublePreferencesKey("active_progress")
@@ -126,6 +149,10 @@ class ConfigRepository(context: Context) {
         val ACTIVE_THEME = stringPreferencesKey("active_theme")
         val ACTIVE_SOUND = booleanPreferencesKey("active_sound")
         val ACTIVE_HAPTICS = booleanPreferencesKey("active_haptics")
+        val ACTIVE_COUNTDOWN_AUDIO = booleanPreferencesKey("active_countdown_audio")
+        val ACTIVE_SHOW_TARGET = booleanPreferencesKey("active_show_target")
+        val ACTIVE_KEEP_SCREEN_ON = booleanPreferencesKey("active_keep_screen_on")
+        val ACTIVE_ADVANCED_TASTING = booleanPreferencesKey("active_advanced_tasting")
 
         val activeSessionKeys = listOf(
             ACTIVE_PHASE,
@@ -133,6 +160,7 @@ class ConfigRepository(context: Context) {
             ACTIVE_PAUSED_ACCUMULATED,
             ACTIVE_PAUSED_STARTED_AT,
             ACTIVE_LAST_CUE_ELAPSED,
+            ACTIVE_LAST_COUNTDOWN_SECOND,
             ACTIVE_ELAPSED,
             ACTIVE_REMAINING,
             ACTIVE_PROGRESS,
@@ -144,6 +172,10 @@ class ConfigRepository(context: Context) {
             ACTIVE_THEME,
             ACTIVE_SOUND,
             ACTIVE_HAPTICS,
+            ACTIVE_COUNTDOWN_AUDIO,
+            ACTIVE_SHOW_TARGET,
+            ACTIVE_KEEP_SCREEN_ON,
+            ACTIVE_ADVANCED_TASTING,
         )
     }
 }

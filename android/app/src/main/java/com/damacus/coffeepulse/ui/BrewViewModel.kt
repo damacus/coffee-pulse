@@ -41,6 +41,29 @@ class BrewViewModel(application: Application) : AndroidViewModel(application) {
                 it.copy(config = session.config, session = session)
             }
             if (restored?.isRunning == true) startTicker()
+
+            container.configRepository.activeSession.collect { active ->
+                if (active != null) {
+                    val current = _uiState.value.session
+                    if (active.isRunning != current.isRunning || active.phase != current.phase) {
+                        val snapped = if (active.isRunning) {
+                            TimerEngine.snapshot(active, System.currentTimeMillis()).session
+                        } else {
+                            active
+                        }
+                        _uiState.update { it.copy(session = snapped, config = snapped.config) }
+                        if (snapped.isRunning) {
+                            startTicker()
+                        } else {
+                            tickerJob?.cancel()
+                        }
+                    }
+                } else if (!_uiState.value.session.isIdle && _uiState.value.pendingFinish == null) {
+                    tickerJob?.cancel()
+                    val cfg = _uiState.value.config
+                    _uiState.update { it.copy(session = TimerEngine.idle(cfg)) }
+                }
+            }
         }
 
         viewModelScope.launch {
@@ -98,7 +121,14 @@ class BrewViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(pendingFinish = null) }
     }
 
-    fun saveFinishedBrew(rating: Int?, notes: String) {
+    fun saveFinishedBrew(
+        rating: Int?,
+        notes: String,
+        grindSetting: String = "",
+        beanOrigin: String = "",
+        roastLevel: String = "",
+        flavorTags: List<String> = emptyList(),
+    ) {
         val session = _uiState.value.pendingFinish ?: return
         val finishedAt = System.currentTimeMillis()
         val startedAt = session.startedAtMillis ?: (finishedAt - session.elapsedSeconds * 1_000L)
@@ -115,11 +145,20 @@ class BrewViewModel(application: Application) : AndroidViewModel(application) {
             themeId = session.config.themeId,
             rating = rating,
             notes = notes.trim(),
+            grindSetting = grindSetting.trim(),
+            beanOrigin = beanOrigin.trim(),
+            roastLevel = roastLevel.trim(),
+            flavorTags = flavorTags,
         )
         viewModelScope.launch {
             container.historyRepository.save(entry)
             finishBrew()
         }
+    }
+
+    fun finishWithoutSaving() {
+        if (_uiState.value.pendingFinish == null) return
+        finishBrew()
     }
 
     fun saveConfig(config: BrewConfig) {
@@ -144,13 +183,19 @@ class BrewViewModel(application: Application) : AndroidViewModel(application) {
     private fun startTicker() {
         tickerJob?.cancel()
         tickerJob = viewModelScope.launch {
+            var lastPersistedSecond = -1
             while (true) {
                 val current = _uiState.value.session
                 if (!current.isRunning) break
                 val nowMillis = System.currentTimeMillis()
                 val transition = TimerEngine.snapshot(current, nowMillis)
                 _uiState.update { it.copy(session = transition.session) }
-                persistSession(transition.session)
+
+                // Only write to disk DataStore when elapsed seconds advance or at phase transitions
+                if (transition.session.elapsedSeconds != lastPersistedSecond || transition.cue != null) {
+                    lastPersistedSecond = transition.session.elapsedSeconds
+                    persistSession(transition.session)
+                }
                 delay(TimerEngine.millisUntilNextUpdate(transition.session, System.currentTimeMillis()))
             }
         }

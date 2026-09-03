@@ -53,7 +53,7 @@ class BrewHaptics(context: Context) {
         val vibrator = vibrator ?: return
         if (!vibrator.hasVibrator()) return
         val pattern = BrewHapticPattern.forCue(cue, vibrator.hasAmplitudeControl())
-        val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val effect = envelopeEffect(vibrator, pattern) ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (pattern.amplitudes == null) {
                 VibrationEffect.createWaveform(pattern.timings, -1)
             } else {
@@ -64,5 +64,25 @@ class BrewHaptics(context: Context) {
             return vibrator.vibrate(pattern.timings, -1)
         }
         vibrator.vibrate(effect)
+    }
+
+    private fun envelopeEffect(
+        vibrator: Vibrator,
+        pattern: BrewHapticPattern,
+    ): VibrationEffect? {
+        if (Build.VERSION.SDK_INT < 36 || !vibrator.areEnvelopeEffectsSupported()) return null
+        val envelope = pattern.envelope ?: return null
+        return runCatching {
+            val builder = VibrationEffect.BasicEnvelopeBuilder()
+                .setInitialSharpness(envelope.initialSharpness)
+            envelope.controlPoints.forEach { point ->
+                builder.addControlPoint(
+                    point.intensity,
+                    point.sharpness,
+                    point.durationMillis,
+                )
+            }
+            builder.build()
+        }.getOrNull()
     }
 }

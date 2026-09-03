@@ -4,21 +4,26 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -28,10 +33,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.damacus.coffeepulse.domain.BrewMath
@@ -46,6 +53,7 @@ fun SettingsSheet(
     palette: CoffeePulsePalette,
     onDismiss: () -> Unit,
     onSave: (BrewConfig) -> Unit,
+    onOpenPresets: () -> Unit = {},
 ) {
     var bloom by remember(config) { mutableStateOf(config.bloomSeconds.toString()) }
     var pulse by remember(config) { mutableStateOf(config.pulseIntervalSeconds.toString()) }
@@ -54,6 +62,10 @@ fun SettingsSheet(
     var themeId by remember(config) { mutableStateOf(config.themeId) }
     var sound by remember(config) { mutableStateOf(config.soundEnabled) }
     var haptics by remember(config) { mutableStateOf(config.hapticsEnabled) }
+    var countdownAudio by remember(config) { mutableStateOf(config.countdownAudioEnabled) }
+    var showCumulativeWeight by remember(config) { mutableStateOf(config.showCumulativeWeightTarget) }
+    var keepScreenOn by remember(config) { mutableStateOf(config.keepScreenOn) }
+    var advancedTasting by remember(config) { mutableStateOf(config.advancedTastingWorkflow) }
     var errors by remember { mutableStateOf(emptyList<String>()) }
 
     ModalBottomSheet(
@@ -64,11 +76,25 @@ fun SettingsSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 34.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Text("Settings", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Settings", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                OutlinedButton(
+                    onClick = onOpenPresets,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = palette.phases.pour),
+                ) {
+                    Text("Browse Recipes")
+                }
+            }
 
             SectionTitle("Appearance", palette)
             FlowRow(
@@ -86,7 +112,7 @@ fun SettingsSheet(
 
             SectionTitle("Brew Calculator", palette)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(15.0, 30.0, 45.0, 60.0, 75.0).forEach { grams ->
+                listOf(15.0, 20.0, 30.0, 45.0, 60.0).forEach { grams ->
                     FilterChip(
                         selected = coffee.toDoubleOrNull() == grams,
                         onClick = { coffee = trimNumber(grams) },
@@ -100,12 +126,14 @@ fun SettingsSheet(
                     value = coffee,
                     onValueChange = { coffee = it },
                     modifier = Modifier.weight(1f),
+                    isDecimal = true,
                 )
                 NumberField(
                     label = "Ratio (1:?)",
                     value = ratio,
                     onValueChange = { ratio = it },
                     modifier = Modifier.weight(1f),
+                    isDecimal = true,
                 )
             }
             Text(
@@ -129,12 +157,16 @@ fun SettingsSheet(
                 )
             }
 
+            SectionTitle("Brew Experience & Cues", palette)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Sound cues", color = palette.text)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Phase transition sound", color = palette.text, fontWeight = FontWeight.Medium)
+                    Text("Arpeggios and tone alerts on phase switch", color = palette.mutedText, fontSize = 12.sp)
+                }
                 Switch(checked = sound, onCheckedChange = { sound = it })
             }
             Row(
@@ -142,8 +174,55 @@ fun SettingsSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Haptics", color = palette.text)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("3-2-1 Audio Countdown Cue", color = palette.text, fontWeight = FontWeight.Medium)
+                    Text("Chimes 3 seconds before next phase for eyes-free brewing", color = palette.mutedText, fontSize = 12.sp)
+                }
+                Switch(checked = countdownAudio, onCheckedChange = { countdownAudio = it })
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Haptics", color = palette.text, fontWeight = FontWeight.Medium)
+                    Text("Tactile feedback at phase transitions", color = palette.mutedText, fontSize = 12.sp)
+                }
                 Switch(checked = haptics, onCheckedChange = { haptics = it })
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Cumulative Pour Target", color = palette.text, fontWeight = FontWeight.Medium)
+                    Text("Displays target water weight on scale per pulse", color = palette.mutedText, fontSize = 12.sp)
+                }
+                Switch(checked = showCumulativeWeight, onCheckedChange = { showCumulativeWeight = it })
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Keep Screen On", color = palette.text, fontWeight = FontWeight.Medium)
+                    Text("Prevents screen lock during an active brew session", color = palette.mutedText, fontSize = 12.sp)
+                }
+                Switch(checked = keepScreenOn, onCheckedChange = { keepScreenOn = it })
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Advanced Tasting & Dial-In", color = palette.text, fontWeight = FontWeight.Medium)
+                    Text("Record grind size, bean origin, roast level & flavor tags", color = palette.mutedText, fontSize = 12.sp)
+                }
+                Switch(checked = advancedTasting, onCheckedChange = { advancedTasting = it })
             }
 
             if (errors.isNotEmpty()) {
@@ -176,6 +255,10 @@ fun SettingsSheet(
                                 themeId = themeId,
                                 soundEnabled = sound,
                                 hapticsEnabled = haptics,
+                                countdownAudioEnabled = countdownAudio,
+                                showCumulativeWeightTarget = showCumulativeWeight,
+                                keepScreenOn = keepScreenOn,
+                                advancedTastingWorkflow = advancedTasting,
                             ),
                         )
                     }
@@ -201,62 +284,71 @@ private fun SectionTitle(text: String, palette: CoffeePulsePalette) {
 }
 
 @Composable
+private fun NumberField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    isDecimal: Boolean = false,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { input ->
+            val sanitized = if (isDecimal) {
+                input.filter { it.isDigit() || it == '.' }
+            } else {
+                input.filter { it.isDigit() }
+            }
+            onValueChange(sanitized)
+        },
+        label = { Text(label) },
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (isDecimal) KeyboardType.Decimal else KeyboardType.Number,
+        ),
+        singleLine = true,
+        modifier = modifier,
+    )
+}
+
+@Composable
 private fun ThemeSwatch(
     palette: CoffeePulsePalette,
     active: Boolean,
     onClick: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.clickable(onClick = onClick),
     ) {
         Row(
             modifier = Modifier
-                .size(48.dp)
+                .size(46.dp)
                 .clip(CircleShape)
                 .background(palette.background)
                 .border(
                     width = if (active) 3.dp else 1.dp,
-                    color = if (active) palette.phases.pour else palette.text.copy(alpha = 0.24f),
+                    color = if (active) palette.text else palette.mutedText.copy(alpha = 0.4f),
                     shape = CircleShape,
                 )
-                .padding(11.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            listOf(palette.phases.bloom, palette.phases.pour, palette.phases.wait).forEach { color ->
-                Spacer(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(color),
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(palette.phases.pour),
+            )
         }
         Text(
             text = palette.name,
-            color = palette.text,
-            fontSize = 10.sp,
+            color = if (active) palette.text else palette.mutedText,
+            fontSize = 11.sp,
             fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
         )
     }
-}
-
-@Composable
-private fun NumberField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        singleLine = true,
-        modifier = modifier,
-    )
 }
 
 private fun trimNumber(value: Double): String {

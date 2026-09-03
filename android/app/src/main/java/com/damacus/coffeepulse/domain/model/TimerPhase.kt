@@ -13,8 +13,8 @@ data class PhasePresentation(
 )
 
 fun TimerPhase.presentation(): PhasePresentation = when (this) {
-    TimerPhase.IDLE -> PhasePresentation("READY", "Begin your ritual")
-    TimerPhase.BLOOM -> PhasePresentation("BLOOM", "Let the coffee degas")
-    TimerPhase.POUR -> PhasePresentation("POUR", "Add water slowly and evenly")
-    TimerPhase.WAIT -> PhasePresentation("WAIT", "Let it drain through")
+    TimerPhase.IDLE -> PhasePresentation("READY", "Set up your brewer, then start")
+    TimerPhase.BLOOM -> PhasePresentation("BLOOM", "Wet the grounds, then let them bloom")
+    TimerPhase.POUR -> PhasePresentation("POUR NOW", "Keep the stream slow and even")
+    TimerPhase.WAIT -> PhasePresentation("STOP POURING", "Hands off while the coffee drains")
 }

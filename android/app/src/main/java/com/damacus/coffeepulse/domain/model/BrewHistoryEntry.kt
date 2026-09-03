@@ -13,4 +13,8 @@ data class BrewHistoryEntry(
     val themeId: String,
     val rating: Int?,
     val notes: String,
+    val grindSetting: String = "",
+    val beanOrigin: String = "",
+    val roastLevel: String = "",
+    val flavorTags: List<String> = emptyList(),
 )

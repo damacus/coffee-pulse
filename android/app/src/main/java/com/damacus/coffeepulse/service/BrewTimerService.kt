@@ -11,6 +11,7 @@ import com.damacus.coffeepulse.data.ConfigRepository
 import com.damacus.coffeepulse.domain.TimerCue
 import com.damacus.coffeepulse.domain.TimerEngine
 import com.damacus.coffeepulse.domain.model.BrewConfig
+import com.damacus.coffeepulse.domain.model.TimerPhase
 import com.damacus.coffeepulse.domain.model.TimerSession
 import com.damacus.coffeepulse.sensory.BrewAudioPlayer
 import com.damacus.coffeepulse.sensory.BrewHaptics
@@ -20,6 +21,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -48,7 +50,24 @@ class BrewTimerService : Service() {
             ACTION_RESUME -> updateSession { TimerEngine.resume(it, System.currentTimeMillis()) }
             ACTION_RESET -> stopTimer(cancelHaptics = true)
             ACTION_FINISH -> finishTimer()
-            else -> session?.let { publish(it) } ?: stopSelf()
+            else -> session?.let { publish(it) } ?: run {
+                scope.launch {
+                    val restored = configRepository.activeSession.first()
+                    if (restored != null && restored.phase != TimerPhase.IDLE) {
+                        session = if (restored.isRunning) {
+                            TimerEngine.snapshot(restored, System.currentTimeMillis()).session
+                        } else {
+                            restored
+                        }
+                        publish(session!!)
+                        if (session!!.isRunning) {
+                            startTicker()
+                        }
+                    } else {
+                        stopSelf()
+                    }
+                }
+            }
         }
         return START_NOT_STICKY
     }
@@ -69,6 +88,10 @@ class BrewTimerService : Service() {
             themeId = intent.getStringExtra(EXTRA_THEME) ?: "instrument",
             soundEnabled = intent.getBooleanExtra(EXTRA_SOUND, true),
             hapticsEnabled = intent.getBooleanExtra(EXTRA_HAPTICS, true),
+            countdownAudioEnabled = intent.getBooleanExtra(EXTRA_COUNTDOWN_AUDIO, true),
+            showCumulativeWeightTarget = intent.getBooleanExtra(EXTRA_SHOW_TARGET, true),
+            keepScreenOn = intent.getBooleanExtra(EXTRA_KEEP_SCREEN_ON, true),
+            advancedTastingWorkflow = intent.getBooleanExtra(EXTRA_ADVANCED_TASTING, true),
         )
         session = TimerEngine.start(config, System.currentTimeMillis())
         haptics.start(config.hapticsEnabled)
@@ -78,10 +101,30 @@ class BrewTimerService : Service() {
     }
 
     private fun updateSession(transform: (TimerSession) -> TimerSession) {
-        val current = session ?: return
-        session = transform(current)
-        publish(session ?: return)
-        persist(session)
+        val current = session
+        if (current != null) {
+            applySessionUpdate(transform(current))
+        } else {
+            scope.launch {
+                val restored = configRepository.activeSession.first()
+                if (restored != null && restored.phase != TimerPhase.IDLE) {
+                    val base = if (restored.isRunning) {
+                        TimerEngine.snapshot(restored, System.currentTimeMillis()).session
+                    } else {
+                        restored
+                    }
+                    applySessionUpdate(transform(base))
+                } else {
+                    stopSelf()
+                }
+            }
+        }
+    }
+
+    private fun applySessionUpdate(newSession: TimerSession) {
+        session = newSession
+        publish(newSession)
+        persist(newSession)
         startTicker()
     }
 
@@ -91,15 +134,21 @@ class BrewTimerService : Service() {
         if (!current.isRunning) return
 
         tickerJob = scope.launch {
+            var lastPersistedSecond = -1
             while (isActive) {
                 val current = session ?: break
                 if (!current.isRunning) break
                 val nowMillis = System.currentTimeMillis()
                 val next = TimerEngine.snapshot(current, nowMillis)
                 session = next.session
-                handleCue(next.cue, next.session.config)
+                handleCues(next.cue, next.countdownSecondCue, next.session.config)
                 publish(next.session)
-                persist(next.session)
+
+                // Only persist on integer second changes or boundary cues
+                if (next.session.elapsedSeconds != lastPersistedSecond || next.cue != null) {
+                    lastPersistedSecond = next.session.elapsedSeconds
+                    persist(next.session)
+                }
                 delay(TimerEngine.millisUntilNextUpdate(next.session, System.currentTimeMillis()))
             }
         }
@@ -133,7 +182,10 @@ class BrewTimerService : Service() {
         }
     }
 
-    private fun handleCue(cue: TimerCue?, config: BrewConfig) {
+    private fun handleCues(cue: TimerCue?, countdownCue: Int?, config: BrewConfig) {
+        if (countdownCue != null && config.soundEnabled && config.countdownAudioEnabled) {
+            audioPlayer.playCountdownPip(countdownCue, true)
+        }
         when (cue) {
             TimerCue.BLOOM_COMPLETE -> {
                 audioPlayer.playBloomArpeggio(config.soundEnabled)
@@ -171,29 +223,37 @@ class BrewTimerService : Service() {
         private const val EXTRA_THEME = "theme"
         private const val EXTRA_SOUND = "sound"
         private const val EXTRA_HAPTICS = "haptics"
-        private const val NOTIFICATION_ID = 42
+        private const val EXTRA_COUNTDOWN_AUDIO = "countdown_audio"
+        private const val EXTRA_SHOW_TARGET = "show_target"
+        private const val EXTRA_KEEP_SCREEN_ON = "keep_screen_on"
+        private const val EXTRA_ADVANCED_TASTING = "advanced_tasting"
+
+        private const val NOTIFICATION_ID = 404
 
         fun start(context: Context, config: BrewConfig) {
-            val intent = Intent(context, BrewTimerService::class.java)
-                .setAction(ACTION_START)
-                .putExtra(EXTRA_BLOOM, config.bloomSeconds)
-                .putExtra(EXTRA_PULSE, config.pulseIntervalSeconds)
-                .putExtra(EXTRA_COFFEE, config.coffeeGrams)
-                .putExtra(EXTRA_RATIO, config.waterRatio)
-                .putExtra(EXTRA_THEME, config.themeId)
-                .putExtra(EXTRA_SOUND, config.soundEnabled)
-                .putExtra(EXTRA_HAPTICS, config.hapticsEnabled)
+            val intent = Intent(context, BrewTimerService::class.java).apply {
+                action = ACTION_START
+                putExtra(EXTRA_BLOOM, config.bloomSeconds)
+                putExtra(EXTRA_PULSE, config.pulseIntervalSeconds)
+                putExtra(EXTRA_COFFEE, config.coffeeGrams)
+                putExtra(EXTRA_RATIO, config.waterRatio)
+                putExtra(EXTRA_THEME, config.themeId)
+                putExtra(EXTRA_SOUND, config.soundEnabled)
+                putExtra(EXTRA_HAPTICS, config.hapticsEnabled)
+                putExtra(EXTRA_COUNTDOWN_AUDIO, config.countdownAudioEnabled)
+                putExtra(EXTRA_SHOW_TARGET, config.showCumulativeWeightTarget)
+                putExtra(EXTRA_KEEP_SCREEN_ON, config.keepScreenOn)
+                putExtra(EXTRA_ADVANCED_TASTING, config.advancedTastingWorkflow)
+            }
             ContextCompat.startForegroundService(context, intent)
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, BrewTimerService::class.java).setAction(ACTION_RESET)
-            context.startService(intent)
+            context.startService(Intent(context, BrewTimerService::class.java).setAction(ACTION_RESET))
         }
 
         fun finish(context: Context) {
-            val intent = Intent(context, BrewTimerService::class.java).setAction(ACTION_FINISH)
-            context.startService(intent)
+            context.startService(Intent(context, BrewTimerService::class.java).setAction(ACTION_FINISH))
         }
     }
 }

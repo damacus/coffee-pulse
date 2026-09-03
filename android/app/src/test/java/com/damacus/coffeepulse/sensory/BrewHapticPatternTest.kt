@@ -23,7 +23,7 @@ class BrewHapticPatternTest {
             hasAmplitudeControl = true,
         ).nonZeroAmplitudes()
 
-        assertEquals(listOf(185, 215, 235, 250, 255), amplitudes)
+        assertEquals(listOf(130, 200, 255), amplitudes)
         assertTrue(amplitudes.zipWithNext().all { (left, right) -> left < right })
     }
 
@@ -34,7 +34,7 @@ class BrewHapticPatternTest {
             hasAmplitudeControl = true,
         ).nonZeroAmplitudes()
 
-        assertEquals(listOf(255, 205, 145, 90), amplitudes)
+        assertEquals(listOf(255, 160, 80), amplitudes)
         assertTrue(amplitudes.zipWithNext().all { (left, right) -> left > right })
     }
 
@@ -45,8 +45,32 @@ class BrewHapticPatternTest {
             hasAmplitudeControl = false,
         )
 
-        assertArrayEquals(longArrayOf(0, 130, 35, 95, 25, 70, 18, 48, 14, 34), pattern.timings)
+        assertArrayEquals(longArrayOf(0, 48, 28, 62, 22, 82), pattern.timings)
         assertNull(pattern.amplitudes)
+    }
+
+    @Test
+    fun pourStartEnvelopeRisesFromLowToHighSharpness() {
+        val envelope = BrewHapticPattern.forCue(
+            BrewHapticCue.PourStart,
+            hasAmplitudeControl = true,
+        ).envelope ?: error("Expected pour envelope")
+
+        val sharpness = listOf(envelope.initialSharpness) + envelope.controlPoints.map { it.sharpness }
+        assertTrue(sharpness.zipWithNext().all { (left, right) -> left <= right })
+        assertEquals(0f, envelope.controlPoints.last().intensity)
+    }
+
+    @Test
+    fun stopPourEnvelopeFallsFromHighToLowSharpness() {
+        val envelope = BrewHapticPattern.forCue(
+            BrewHapticCue.StopPourRelax,
+            hasAmplitudeControl = true,
+        ).envelope ?: error("Expected stop envelope")
+
+        val sharpness = listOf(envelope.initialSharpness) + envelope.controlPoints.map { it.sharpness }
+        assertTrue(sharpness.zipWithNext().all { (left, right) -> left >= right })
+        assertEquals(0f, envelope.controlPoints.last().intensity)
     }
 
     private fun BrewHapticPattern.nonZeroAmplitudes(): List<Int> {
