@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.damacus.coffeepulse"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.damacus.coffeepulse"
