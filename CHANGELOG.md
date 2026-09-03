@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0](https://github.com/damacus/coffee-pulse/compare/coffee-pulse-v1.0.0...coffee-pulse-v1.1.0) (2026-09-03)
+
+
+### Features
+
+* add Android brew timer ([#44](https://github.com/damacus/coffee-pulse/issues/44)) ([b6855b2](https://github.com/damacus/coffee-pulse/commit/b6855b287b69e77153b25e5dcddd4442f7fa8955))
+
+
+### Bug Fixes
+
+* **deps:** update dependency androidx.compose:compose-bom to v2026.08.00 ([#67](https://github.com/damacus/coffee-pulse/issues/67)) ([b51b804](https://github.com/damacus/coffee-pulse/commit/b51b8041366e529d803f9e6f75912d5e0e96753a))
+* **deps:** update dependency androidx.core:core-ktx to v1.19.0 ([#68](https://github.com/damacus/coffee-pulse/issues/68)) ([0144adf](https://github.com/damacus/coffee-pulse/commit/0144adfcf3c33a42a507aa76198e1c1b70ad6709))
+* **deps:** update dependency androidx.navigation:navigation-compose to v2.10.0 ([#69](https://github.com/damacus/coffee-pulse/issues/69)) ([95a0690](https://github.com/damacus/coffee-pulse/commit/95a0690692c6f03a98fbcefb89baee4a20b148bd))
+* **deps:** update lifecycle to v2.11.0 ([#71](https://github.com/damacus/coffee-pulse/issues/71)) ([66db250](https://github.com/damacus/coffee-pulse/commit/66db2508d6f640aaff6d1edf89fd8edac2c54ef5))
+
 ## 1.0.0 (2026-06-10)
 
 
